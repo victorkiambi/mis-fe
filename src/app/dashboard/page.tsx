@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { DashboardCard } from "@/components/ui/dashboard-card";
+import { DataTable } from "@/components/ui/data-table";
 import { Users2Icon, FolderIcon, HomeIcon } from "lucide-react";
 import { useApi } from "@/hooks/use-api";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import type { ColumnDef } from "@tanstack/react-table";
+import { log } from "console";
 
 interface DashboardStats {
   totalPrograms: number;
@@ -14,6 +17,58 @@ interface DashboardStats {
   isLoading: boolean;
   error: string | null;
 }
+
+interface Member {
+  id: number;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  relationship: string;
+  household: {
+    id: number;
+    head_first_name: string;
+    head_last_name: string;
+    program: {
+      id: number;
+      name: string;
+    };
+  };
+}
+
+const columns: ColumnDef<Member>[] = [
+  {
+    accessorKey: "firstName",
+    header: "First Name",
+  },
+  {
+    accessorKey: "lastName",
+    header: "Last Name",
+  },
+  {
+    accessorKey: "relationship",
+    header: "Relationship",
+  },
+  {
+    accessorKey: "dateOfBirth",
+    header: "Date of Birth",
+    cell: ({ row }) => {
+      const date = new Date(row.getValue("dateOfBirth"));
+      return date.toLocaleDateString();
+    },
+  },
+  {
+    accessorKey: "household.headFirstName",
+    header: "Household Head",
+    cell: ({ row }) => {
+      const household = row.original.household;
+      return `${household.headFirstName} ${household.headLastName}`;
+    },
+  },
+  {
+    accessorKey: "household.program.name",
+    header: "Program",
+  },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -25,9 +80,10 @@ export default function DashboardPage() {
     isLoading: true,
     error: null,
   });
+  const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
-    async function loadStats() {
+    async function loadData() {
       try {
         // Fetch all required data in parallel
         const [programsResponse, householdsResponse, membersResponse] = await Promise.all([
@@ -48,8 +104,10 @@ export default function DashboardPage() {
           isLoading: false,
           error: null,
         });
+
+        setMembers(membersResponse.data);
       } catch (error) {
-        console.error("Failed to load dashboard stats:", error);
+        console.error("Failed to load dashboard data:", error);
         if (error instanceof Error && error.message === "Unauthorized") {
           router.push("/login");
           return;
@@ -62,7 +120,7 @@ export default function DashboardPage() {
       }
     }
 
-    loadStats();
+    loadData();
   }, [api, router]);
 
   if (stats.isLoading) {
@@ -120,6 +178,20 @@ export default function DashboardPage() {
           value={stats.totalMembers.toLocaleString()}
           icon={<Users2Icon className="h-4 w-4" />}
           description="Individual beneficiaries"
+        />
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold">All Members</h3>
+          <p className="text-muted-foreground">
+            List of all registered beneficiary members
+          </p>
+        </div>
+        <DataTable 
+          columns={columns} 
+          data={members}
+          searchKey="first_name"
         />
       </div>
     </div>

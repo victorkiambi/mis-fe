@@ -76,11 +76,12 @@ interface CreateMemberData {
 
 class ApiClient {
   private token: string | null;
+  private baseUrl: string;
 
   constructor(config: ApiClientConfig = {}) {
-    // Try to get token from localStorage if not provided
-    this.token = config.token || 
-      (typeof window !== 'undefined' ? localStorage.getItem("token") : null);
+    this.token = config.token || null;
+    // Use relative URL for the API proxy
+    this.baseUrl = '/api';
   }
 
   private async fetch<T>(
@@ -94,12 +95,16 @@ class ApiClient {
     const headers = {
       "Content-Type": "application/json",
       ...(this.token && { Authorization: `Bearer ${this.token}` }),
-      ...options.headers,
+      "Accept": "application/json",
     };
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
-      headers,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+      credentials: 'include',
     });
 
     if (!response.ok) {
